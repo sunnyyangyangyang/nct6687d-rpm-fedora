@@ -15,7 +15,9 @@ Upstream driver: https://github.com/Fred78290/nct6687d
 - `Makefile.akmod` - packaging-owned driver for the per-kernel module
   build (swapped into the kmod tree in %prep; the upstream Makefile is the
   manual/dkms/deb workflow and keeps drifting between upstream commits)
-- `nct6687d.service` - oneshot unit that ensures the module is loaded
+- `nct6687-load.service` - oneshot loader unit, ordered After
+  `akmods.service` so the module is only loaded once akmods has compiled
+  it (first-boot safe)
 - `nct6687.conf` - modprobe.d configuration
 
 ## Versioning

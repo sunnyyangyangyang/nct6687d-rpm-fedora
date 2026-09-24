@@ -1,0 +1,18 @@
+[Unit]
+Description=nct6687d Kernel Module Loader
+Documentation=https://github.com/Fred78290/nct6687d
+After=akmods.service basic.target sysinit.target
+Before=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+ExecStart=/sbin/modprobe nct6687
+ExecStop=-/sbin/modprobe -r nct6687
+
+TimeoutStartSec=30
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

@@ -19,7 +19,7 @@ Summary:        Nuvoton NCT6687 hardware monitoring kernel module (akmod)
 License:        GPL-2.0-or-later
 URL:            https://github.com/Fred78290/nct6687d
 Source0:        %{url}/archive/%{nct6687d_commit}.tar.gz#/%{name}-%{nct6687d_commit}.tar.gz
-Source1:        nct6687d.service
+Source1:        nct6687-load.service
 Source2:        Makefile.akmod
 Source3:        nct6687.conf
 Source4:        nct6687d-kmod.spec.in
@@ -90,7 +90,7 @@ cp %{SOURCE2} Makefile
 %install
 # --- Install runtime components ---
 install -D -m 0644 %{SOURCE3} %{buildroot}%{_sysconfdir}/modprobe.d/nct6687.conf
-install -D -m 0644 %{SOURCE1} %{buildroot}%{_unitdir}/nct6687d.service
+install -D -m 0644 %{SOURCE1} %{buildroot}%{_unitdir}/nct6687-load.service
 
 # --- Create and install the kmod SRPM for akmods ---
 install -d %{buildroot}%{_usrsrc}/akmods/
@@ -204,8 +204,8 @@ EOF
 smart_mok_check
 
 # Register service with systemd
-%systemd_post nct6687d.service
-systemctl enable nct6687d.service >/dev/null 2>&1 || true
+%systemd_post nct6687-load.service
+systemctl enable nct6687-load.service >/dev/null 2>&1 || true
 
 cat << EOF
 
@@ -221,7 +221,7 @@ After rebooting, the NCT6687 sensors are exposed through hwmon:
   sensors
 
 To check the module / service status:
-  systemctl status nct6687d.service
+  systemctl status nct6687-load.service
 
 Board-specific sensor examples (labels/compute) are installed in:
   %{_docdir}/sensors.d/
@@ -233,7 +233,7 @@ EOF
 
 %preun
 # Stop service before uninstall/upgrade
-%systemd_preun nct6687d.service
+%systemd_preun nct6687-load.service
 
 if [ $1 -eq 0 ]; then
     # Complete uninstall: try to remove the kernel module
@@ -242,7 +242,7 @@ if [ $1 -eq 0 ]; then
 fi
 
 %postun
-%systemd_postun nct6687d.service
+%systemd_postun nct6687-load.service
 
 if [ $1 -ne 0 ]; then
     # Upgrade scenario: show message
@@ -266,7 +266,7 @@ fi
 %license LICENSE
 %doc README.md TESTING_RESULTS.md sensors.d
 %config(noreplace) %{_sysconfdir}/modprobe.d/nct6687.conf
-%{_unitdir}/nct6687d.service
+%{_unitdir}/nct6687-load.service
 %{_dracut_conf_d}/99-nct6687d.conf
 
 %files -n akmod-%{name}
@@ -284,7 +284,7 @@ fi
 - Replace upstream's MAKEFILE_PKGVER/MAKEFILE_COMMITHASH placeholder
   specs; version now pinned to an upstream commit (nct6687d_commit)
   with a Fedora git-snapshot style release
-- Add nct6687d.service (oneshot modprobe unit) and nct6687 modprobe conf
+- Add nct6687-load.service (oneshot modprobe unit) and nct6687 modprobe conf
 - Ship board-specific hwmon.d examples from upstream sensors.d/ as docs
 - Drive the per-kernel build from a packaging-owned Makefile.akmod; the
   upstream Makefile stays the manual/dkms/deb workflow and is swapped out
@@ -292,3 +292,7 @@ fi
 - %setup pins codeload's actual top-level directory name
   (<repo>-<full sha>, verified against live codeload output), and
   %changelog dates use the RPM standard format
+- Align the loader unit with the gddr7-temp pattern: renamed to
+  nct6687-load.service and ordered After akmods.service, so on first boot
+  the module is only modprobed after akmods has compiled it (fixes the
+  first-boot race of the previous unit ordering); unload via ExecStop
