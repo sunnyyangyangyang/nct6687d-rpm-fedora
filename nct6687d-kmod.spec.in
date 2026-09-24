@@ -12,7 +12,7 @@ Version:       @NCT6687D_VERSION@
 Release:       @NCT6687D_RELEASE@
 Summary:       NCT6687D kernel module
 
-License:       GPL-2.0-or-later
+License:       GPL-2.0
 URL:           https://github.com/Fred78290/nct6687d
 
 Source0:       nct6687d-kmod-%{version}.tar.gz
