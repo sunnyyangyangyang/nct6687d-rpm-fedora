@@ -17,8 +17,6 @@ Upstream driver: https://github.com/Fred78290/nct6687d
   manual/dkms/deb workflow and keeps drifting between upstream commits)
 - `nct6687d.service` - oneshot unit that ensures the module is loaded
 - `nct6687.conf` - modprobe.d configuration
-- `.github/workflows/check-upstream-commit.yml` - tracks the upstream
-  default branch and auto-bumps the pinned commit + release
 
 ## Versioning
 
