@@ -16,7 +16,7 @@ Version:        1.0
 Release:        %{nct6687d_release}%{?dist}
 Summary:        Nuvoton NCT6687 hardware monitoring kernel module (akmod)
 
-License:       GPL-2.0
+License:        GPL-2.0-or-later
 URL:            https://github.com/Fred78290/nct6687d
 Source0:        %{url}/archive/%{nct6687d_commit}.tar.gz#/%{name}-%{nct6687d_commit}.tar.gz
 Source1:        nct6687-load.service
