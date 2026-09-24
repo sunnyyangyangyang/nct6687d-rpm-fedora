@@ -12,6 +12,9 @@ Upstream driver: https://github.com/Fred78290/nct6687d
   the akmod/kmod SRPMs at build time
 - `nct6687d-kmod.spec.in` - template for the per-kernel akmod kmod spec
   (`@NCT6687D_VERSION@`/`@NCT6687D_RELEASE@` are filled from the main spec)
+- `Makefile.akmod` - packaging-owned driver for the per-kernel module
+  build (swapped into the kmod tree in %prep; the upstream Makefile is the
+  manual/dkms/deb workflow and keeps drifting between upstream commits)
 - `nct6687d.service` - oneshot unit that ensures the module is loaded
 - `nct6687.conf` - modprobe.d configuration
 - `.github/workflows/check-upstream-commit.yml` - tracks the upstream

@@ -1,0 +1,37 @@
+# NCT6687D Akmod-compatible Makefile
+#
+# Packaging-owned driver for the per-kernel module build. The upstream
+# tree's own Makefile is a manual-install/dkms/deb/akmod hodgepodge that
+# keeps drifting between upstream commits, so the kmod spec builds against
+# this frozen wrapper instead (the main spec's %prep replaces the
+# upstream Makefile in the tree, and the kmod SRPM tarball inherits it).
+#
+# The module itself is declared by the tree's Kbuild file
+# (obj-m += nct6687.o); the kernel build prefers Kbuild over Makefile,
+# so this file only drives the out-of-tree kernel build.
+
+KVER ?= $(shell uname -r)
+KDIR ?= /lib/modules/$(KVER)/build
+
+# Build with the same compiler flavor as the kernel (clang/LLVM detection)
+KERNEL_CC := $(shell grep -qs CONFIG_CC_IS_CLANG=y $(KDIR)/.config && echo clang)
+ifeq ($(KERNEL_CC),clang)
+LLVM_FLAGS := LLVM=1
+endif
+
+# Fallback so the tree still builds if upstream ever drops the Kbuild file
+obj-m += nct6687.o
+
+.PHONY: default modules modules_install clean
+
+# Default target for akmod
+default: modules
+
+modules:
+	$(MAKE) -C $(KDIR) M=$(CURDIR) $(LLVM_FLAGS) modules
+
+modules_install:
+	$(MAKE) -C $(KDIR) M=$(CURDIR) $(LLVM_FLAGS) modules_install
+
+clean:
+	$(MAKE) -C $(KDIR) M=$(CURDIR) $(LLVM_FLAGS) clean

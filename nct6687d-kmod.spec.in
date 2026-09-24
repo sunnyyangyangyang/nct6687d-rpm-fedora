@@ -50,6 +50,9 @@ for kernel_version in %{?kernel_versions} ; do
 done
 
 %build
+# The tree's Makefile is the packaging-owned akmod driver (Makefile.akmod,
+# installed by the main spec's %prep); KVER/KDIR are injected here and the
+# kernel build picks up the module list from the tree's Kbuild file.
 for kernel_version in %{?kernel_versions}; do
     pushd _kmod_build_${kernel_version%%___*}/
     make V=0 %{?_smp_mflags} \

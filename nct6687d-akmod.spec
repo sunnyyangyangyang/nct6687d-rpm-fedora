@@ -21,8 +21,9 @@ License:        GPL-2.0-or-later
 URL:            https://github.com/Fred78290/nct6687d
 Source0:        %{url}/archive/%{nct6687d_commit}.tar.gz#/nct6687d-%{nct6687d_commitshort}.tar.gz
 Source1:        nct6687d.service
-Source2:        nct6687.conf
-Source3:        nct6687d-kmod.spec.in
+Source2:        Makefile.akmod
+Source3:        nct6687.conf
+Source4:        nct6687d-kmod.spec.in
 
 # NCT6687 is a PC Super-I/O chip: x86 only
 ExclusiveArch:  x86_64 i686
@@ -78,12 +79,16 @@ This package provides the common files for the %{name} kernel modules.
 %prep
 %setup -q -n nct6687d-%{nct6687d_commitshort}
 
-# No Makefile surgery needed: the upstream Makefile already supports
-# 'make KVER=<ver> KDIR=<dir> modules', which is what the kmod spec drives.
+# Replace the upstream Makefile (manual install / dkms / deb / akmod noise
+# that keeps drifting between upstream commits) with the packaging-owned
+# akmod driver. The kmod SRPM tarball inherits this Makefile, so the
+# per-kernel build is fully determined by this packaging.
+cp Makefile Makefile.orig
+cp %{SOURCE2} Makefile
 
 %install
 # --- Install runtime components ---
-install -D -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/modprobe.d/nct6687.conf
+install -D -m 0644 %{SOURCE3} %{buildroot}%{_sysconfdir}/modprobe.d/nct6687.conf
 install -D -m 0644 %{SOURCE1} %{buildroot}%{_unitdir}/nct6687d.service
 
 # --- Create and install the kmod SRPM for akmods ---
@@ -92,7 +97,7 @@ install -d %{buildroot}%{_usrsrc}/akmods/
 SRPM_TOPDIR=$(mktemp -d)
 mkdir -p "$SRPM_TOPDIR"/{SOURCES,SPECS}
 
-sed -e 's|@NCT6687D_VERSION@|%{version}|g'     -e 's|@NCT6687D_RELEASE@|%{release}|g'     %{SOURCE3} > "$SRPM_TOPDIR"/SPECS/nct6687d-kmod.spec
+sed -e 's|@NCT6687D_VERSION@|%{version}|g'     -e 's|@NCT6687D_RELEASE@|%{release}|g'     %{SOURCE4} > "$SRPM_TOPDIR"/SPECS/nct6687d-kmod.spec
 
 tar -czf "$SRPM_TOPDIR"/SOURCES/nct6687d-kmod-%{version}.tar.gz     --transform "s|^nct6687d-%{nct6687d_commitshort}|nct6687d-kmod-%{version}|"     -C %{_builddir}     nct6687d-%{nct6687d_commitshort}
 
@@ -275,3 +280,6 @@ fi
   with a Fedora git-snapshot style release
 - Add nct6687d.service (oneshot modprobe unit) and nct6687 modprobe conf
 - Ship board-specific hwmon.d examples from upstream sensors.d/ as docs
+- Drive the per-kernel build from a packaging-owned Makefile.akmod; the
+  upstream Makefile stays the manual/dkms/deb workflow and is swapped out
+  in %prep before the kmod SRPM tarball is generated
