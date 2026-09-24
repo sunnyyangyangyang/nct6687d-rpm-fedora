@@ -1,23 +1,24 @@
-# Filename: corefreq-kmod.spec.in
+# Filename: nct6687d-kmod.spec.in
 
 %if 0%{?fedora}
 %global buildforkernels akmod
 %endif
 
 %global debug_package %{nil}
-%global kmod_name corefreq
+%global kmod_name nct6687d
 
-Name:          corefreq-kmod
-Version:       @COREFREQ_VERSION@
-Release:       @RELEASE@
-Summary:       CoreFreq kernel module
+Name:          nct6687d-kmod
+Version:       @NCT6687D_VERSION@
+Release:       @NCT6687D_RELEASE@
+Summary:       NCT6687D kernel module
 
-License:       GPL-2.0-only
-URL:           https://github.com/cyring/CoreFreq
+License:       GPL-2.0-or-later
+URL:           https://github.com/Fred78290/nct6687d
 
-Source0:       corefreq-kmod-%{version}.tar.gz
+Source0:       nct6687d-kmod-%{version}.tar.gz
 
-ExclusiveArch: x86_64 aarch64 ppc64le
+# NCT6687 is a PC Super-I/O chip: x86 only
+ExclusiveArch: x86_64 i686
 
 # get the needed BuildRequires (in parts depending on what we build for)
 %global AkmodsBuildRequires %{_bindir}/kmodtool
@@ -30,8 +31,10 @@ BuildRequires: gcc, make
 %{expand:%(kmodtool --target %{_target_cpu} --repo rpmfusion --kmodname %{kmod_name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
 
 %description
-The CoreFreq %{version} kernel module for kernel %{kversion}.
-CoreFreq is a CPU monitoring software designed for 64-bit processors.
+The NCT6687D %{version} kernel module for kernel %{kversion}.
+nct6687d is a driver for the hardware monitoring functionality of
+Nuvoton NCT6687 Super-I/O chips, exposing voltage, temperature and fan
+sensors through the Linux hwmon subsystem.
 
 %prep
 # error out if there was something wrong with kmodtool
@@ -43,13 +46,13 @@ kmodtool --target %{_target_cpu} --repo rpmfusion --kmodname %{kmod_name} %{?bui
 %setup -q -c -T -a 0
 
 for kernel_version in %{?kernel_versions} ; do
-    cp -a corefreq-kmod-%{version} _kmod_build_${kernel_version%%___*}
+    cp -a nct6687d-kmod-%{version} _kmod_build_${kernel_version%%___*}
 done
 
 %build
 for kernel_version in %{?kernel_versions}; do
     pushd _kmod_build_${kernel_version%%___*}/
-    %make_build \
+    make V=0 %{?_smp_mflags} \
         KVER="${kernel_version%%___*}" \
         KDIR="${kernel_version##*___}" \
         modules
@@ -59,11 +62,11 @@ done
 %install
 for kernel_version in %{?kernel_versions}; do
     mkdir -p $RPM_BUILD_ROOT/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
-    install -D -m 0644 _kmod_build_${kernel_version%%___*}/build/corefreqk.ko \
+    install -D -m 0644 _kmod_build_${kernel_version%%___*}/nct6687.ko \
          $RPM_BUILD_ROOT/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
 done
 %{?akmod_install}
 
 %changelog
-* Sat Sep 07 2025 Sunny Yang <yxh9956@gmail.com> - @COREFREQ_VERSION@-@RELEASE@
+* Wed, 23 Sep 2026 Sunny <yxh9956@gmail.com> - @NCT6687D_VERSION@-@NCT6687D_RELEASE@
 - Follow nvidia-kmod pattern for reliable kernel module building

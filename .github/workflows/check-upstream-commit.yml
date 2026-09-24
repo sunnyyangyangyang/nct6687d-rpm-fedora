@@ -1,0 +1,82 @@
+name: Check for Upstream Commit and Update Spec
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 12 * * *'
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get latest upstream commit
+        id: upstream
+        run: |
+          # Upstream has no release tags: track the default branch HEAD instead
+          BRANCH=$(curl --retry 3 --retry-delay 10 -s "https://api.github.com/repos/Fred78290/nct6687d" | jq -r .default_branch)
+          if [ -z "${BRANCH}" ] || [ "${BRANCH}" == "null" ]; then
+            echo "::error::Could not determine upstream default branch. Aborting."
+            exit 1
+          fi
+          API_RESPONSE=$(curl --retry 3 --retry-delay 10 -s "https://api.github.com/repos/Fred78290/nct6687d/commits/${BRANCH}")
+          if ! echo "${API_RESPONSE}" | jq -e '.sha' > /dev/null; then
+            echo "::error::Failed to get valid API response or 'sha' is missing."
+            exit 1
+          fi
+          LATEST_SHA=$(echo "${API_RESPONSE}" | jq -r .sha)
+          if [ -z "${LATEST_SHA}" ] || [ "${LATEST_SHA}" == "null" ]; then
+            echo "::error::Extracted commit is null or empty. Aborting."
+            exit 1
+          fi
+          echo "Latest upstream commit is: ${LATEST_SHA}"
+          echo "commit=${LATEST_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Get current spec commit
+        id: spec
+        run: |
+          CURRENT_COMMIT=$(grep '^%global nct6687d_commit ' nct6687d-akmod.spec | awk '{print $3}')
+          if [ -z "${CURRENT_COMMIT}" ]; then
+            echo "::error::Could not extract pinned commit from nct6687d-akmod.spec. Aborting."
+            exit 1
+          fi
+          echo "Current pinned commit is: ${CURRENT_COMMIT}"
+          echo "commit=${CURRENT_COMMIT}" >> $GITHUB_OUTPUT
+
+      - name: Compare commits and update if necessary
+        if: steps.upstream.outputs.commit && steps.spec.outputs.commit && steps.upstream.outputs.commit != steps.spec.outputs.commit
+        run: |
+          echo "New upstream commit found! Updating spec from ${{ steps.spec.outputs.commit }} to ${{ steps.upstream.outputs.commit }}..."
+          NEW_COMMIT="${{ steps.upstream.outputs.commit }}"
+          NEW_SHORT=$(echo "${NEW_COMMIT}" | cut -c1-7)
+          NEW_RELEASE="$(date +%Y%m%d)git${NEW_SHORT}"
+
+          # Update the pinned commit and the git-snapshot release
+          sed -i "s/^(%global nct6687d_commits+).*/\1${NEW_COMMIT}/" nct6687d-akmod.spec
+          sed -i "s/^(%global nct6687d_releases+).*/\1${NEW_RELEASE}/" nct6687d-akmod.spec
+          echo "✅ nct6687d-akmod.spec updated."
+
+          echo "Adding changelog entry..."
+          CHANGELOG_DATE=$(date -R)
+          AUTHOR_INFO="github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          awk -v date="${CHANGELOG_DATE}" -v version="1.0" -v release="${NEW_RELEASE}" -v commit="${NEW_SHORT}" -v author="${AUTHOR_INFO}" \
+            '/%changelog/ { print; print "* " date " " author " - " version "-" release; print "- Update to upstream commit " commit; print ""; next } 1' \
+            nct6687d-akmod.spec > nct6687d-akmod.spec.new && mv nct6687d-akmod.spec.new nct6687d-akmod.spec
+
+          echo "Committing changes..."
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+          git add nct6687d-akmod.spec
+          git commit -m "chore(release): Bump upstream commit to ${NEW_SHORT}"
+          git push
+
+      - name: Report no changes
+        if: steps.upstream.outputs.commit == steps.spec.outputs.commit
+        run: |
+          echo "No new upstream commit found. Pinned commit (${{ steps.spec.outputs.commit }}) is up-to-date."

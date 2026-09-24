@@ -1,32 +1,41 @@
-# CoreFreq Akmod RPM Spec - NVIDIA-style approach
+# NCT6687D Akmod RPM Spec - NVIDIA-style approach
 %global _debugsource_packages 0
 %global _debuginfo_packages 0
 %global debug_package %{nil}
 %global _dracut_conf_d /usr/lib/dracut/dracut.conf.d
-%global corefreq_version 2.1.4
 
-Name:           corefreq
-Version:        %{corefreq_version}
-Release:        1%{?dist}
-Summary:        CPU monitoring software with akmod kernel module
+# Upstream Fred78290/nct6687d ships no release tags:
+# the package version is pinned to an upstream commit, and the release
+# encodes the packaging date plus the short commit (Fedora git-snapshot
+# convention), so every upstream sync is a new, uniquely named build.
+%global nct6687d_commit 5f12dd1b0b3c8f79f31d309749862d986ff9efa7
+%global nct6687d_commitshort %(echo %{nct6687d_commit} | cut -c1-12)
+%global nct6687d_release 20260923git5f12dd1
 
-License:        GPL-2.0-only
-URL:            https://github.com/cyring/CoreFreq
-Source0:        %{url}/archive/refs/tags/%{version}.tar.gz#/%{name}-%{version}.tar.gz
-Source1:        corefreqd.service
-Source2:        Makefile.akmod
-Source3:        corefreq-kmod.spec.in
+Name:           nct6687d
+Version:        1.0
+Release:        %{nct6687d_release}%{?dist}
+Summary:        Nuvoton NCT6687 hardware monitoring kernel module (akmod)
+
+License:        GPL-2.0-or-later
+URL:            https://github.com/Fred78290/nct6687d
+Source0:        %{url}/archive/%{nct6687d_commit}.tar.gz#/nct6687d-%{nct6687d_commitshort}.tar.gz
+Source1:        nct6687d.service
+Source2:        nct6687.conf
+Source3:        nct6687d-kmod.spec.in
+
+# NCT6687 is a PC Super-I/O chip: x86 only
+ExclusiveArch:  x86_64 i686
 
 # Akmod BuildRequires
 BuildRequires:  kmodtool
 BuildRequires:  akmods
-BuildRequires:  gcc make rpm-build
+BuildRequires:  rpm-build
 BuildRequires:  systemd-rpm-macros
-BuildRequires:  kernel-devel
 
 # Runtime Requirements
 Requires:       systemd
-%ifarch aarch64 x86_64
+%ifarch x86_64 i686
 Requires:       mokutil
 %endif
 Requires:       %{name}-kmod = %{?epoch:%{epoch}:}%{version}-%{release}
@@ -36,9 +45,14 @@ Requires:       %{name}-kmod-common = %{?epoch:%{epoch}:}%{version}-%{release}
 %{expand:%(kmodtool --target %{_target_cpu} --kmodname %{name} --pattern ".*" --akmod 2>/dev/null) }
 
 %description
-CoreFreq is a CPU monitoring software designed for 64-bit Processors.
-This package provides the user-space tools and the akmod source for the
-'corefreqk' kernel module with full automation including Secure Boot support.
+nct6687d is a kernel module for the hardware monitoring functionality of
+Nuvoton NCT6687 Super-I/O chips, exposing voltage, temperature and fan
+sensors through the Linux hwmon subsystem (visible via lm-sensors).
+The chip is present on many B550/B460/Z690-class motherboards.
+
+This package provides the systemd service, modprobe configuration and the
+akmod source for the 'nct6687' kernel module with full automation
+including Secure Boot support.
 
 IMPORTANT: After installation, a REBOOT is required for the kernel module
 to be compiled and loaded automatically.
@@ -62,26 +76,15 @@ Provides:       %{name}-kmod-common = %{?epoch:%{epoch}:}%{version}-%{release}
 This package provides the common files for the %{name} kernel modules.
 
 %prep
-%setup -q -n CoreFreq-%{version}
-cp Makefile Makefile.orig
-cp %{SOURCE2} Makefile
+%setup -q -n nct6687d-%{nct6687d_commitshort}
 
-# Replace version placeholders in Makefile with actual values from spec
-COREFREQ_MAJOR=$(echo "%{version}" | cut -d. -f1)
-COREFREQ_MINOR=$(echo "%{version}" | cut -d. -f2)
-COREFREQ_REV=$(echo "%{version}" | cut -d. -f3)
-sed -i "s/@COREFREQ_MAJOR@/$COREFREQ_MAJOR/g" Makefile
-sed -i "s/@COREFREQ_MINOR@/$COREFREQ_MINOR/g" Makefile
-sed -i "s/@COREFREQ_REV@/$COREFREQ_REV/g" Makefile
-
-%build
-make %{?_smp_mflags} userspace
+# No Makefile surgery needed: the upstream Makefile already supports
+# 'make KVER=<ver> KDIR=<dir> modules', which is what the kmod spec drives.
 
 %install
-# --- Install userspace components ---
-install -D -m 0755 build/corefreqd %{buildroot}%{_bindir}/corefreqd
-install -D -m 0755 build/corefreq-cli %{buildroot}%{_bindir}/corefreq-cli
-install -D -m 0644 %{SOURCE1} %{buildroot}%{_unitdir}/corefreqd.service
+# --- Install runtime components ---
+install -D -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/modprobe.d/nct6687.conf
+install -D -m 0644 %{SOURCE1} %{buildroot}%{_unitdir}/nct6687d.service
 
 # --- Create and install the kmod SRPM for akmods ---
 install -d %{buildroot}%{_usrsrc}/akmods/
@@ -89,18 +92,13 @@ install -d %{buildroot}%{_usrsrc}/akmods/
 SRPM_TOPDIR=$(mktemp -d)
 mkdir -p "$SRPM_TOPDIR"/{SOURCES,SPECS}
 
-sed -e 's|@COREFREQ_VERSION@|%{corefreq_version}|g' \
-    -e 's|@RELEASE@|%{release}|g' \
-    %{SOURCE3} > "$SRPM_TOPDIR"/SPECS/corefreq-kmod.spec
+sed -e 's|@NCT6687D_VERSION@|%{version}|g'     -e 's|@NCT6687D_RELEASE@|%{release}|g'     %{SOURCE3} > "$SRPM_TOPDIR"/SPECS/nct6687d-kmod.spec
 
-tar -czf "$SRPM_TOPDIR"/SOURCES/corefreq-kmod-%{version}.tar.gz \
-    --transform "s|^CoreFreq-%{version}|corefreq-kmod-%{version}|" \
-    -C %{_builddir} \
-    CoreFreq-%{version}
+tar -czf "$SRPM_TOPDIR"/SOURCES/nct6687d-kmod-%{version}.tar.gz     --transform "s|^nct6687d-%{nct6687d_commitshort}|nct6687d-kmod-%{version}|"     -C %{_builddir}     nct6687d-%{nct6687d_commitshort}
 
 rpmbuild -bs \
   --define "_topdir $SRPM_TOPDIR" \
-  "$SRPM_TOPDIR"/SPECS/corefreq-kmod.spec
+  "$SRPM_TOPDIR"/SPECS/nct6687d-kmod.spec
 
 install -m 0644 "$SRPM_TOPDIR"/SRPMS/*.src.rpm %{buildroot}%{_usrsrc}/akmods/
 
@@ -111,9 +109,9 @@ rm -rf "$SRPM_TOPDIR"
 
 # --- Dracut configuration ---
 install -d -m 0755 %{buildroot}%{_dracut_conf_d}
-cat > %{buildroot}%{_dracut_conf_d}/99-corefreq.conf << EOF
-# Do not include the corefreqk module in the initramfs.
-omit_drivers+=" corefreqk "
+cat > %{buildroot}%{_dracut_conf_d}/99-nct6687d.conf << EOF
+# Do not include the nct6687 module in the initramfs.
+omit_drivers+=" nct6687 "
 EOF
 
 %post
@@ -127,27 +125,27 @@ fi
 # === SMART MOK DETECTION ===
 smart_mok_check() {
     local akmods_key="/etc/pki/akmods/certs/public_key.der"
-    
+
     # Early exit: Not a UEFI system
     if [ ! -d /sys/firmware/efi/efivars ]; then
         return 0
     fi
-    
+
     # Early exit: mokutil not available
     if ! command -v mokutil >/dev/null 2>&1; then
         return 0
     fi
-    
+
     # Check if Secure Boot is enabled
     local sb_state
     sb_state=$(mokutil --sb-state 2>/dev/null)
-    
+
     if ! echo "$sb_state" | grep -q "SecureBoot enabled"; then
         return 0
     fi
-    
+
     # At this point: UEFI + Secure Boot enabled
-    
+
     # Key should exist now (we just generated it)
     if [ ! -f "$akmods_key" ]; then
         cat << 'EOF'
@@ -162,20 +160,20 @@ Failed to generate akmods key. After reboot, run:
 EOF
         return 1
     fi
-    
+
     # Check if key is already enrolled
     if mokutil --list-enrolled 2>/dev/null | grep -q "CN=akmods" || \
        mokutil --test-key "$akmods_key" 2>&1 | grep -qi "already.*enrolled"; then
         return 0
     fi
-    
+
     # Key exists but NOT enrolled - show instructions
     cat << 'EOF'
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔐 SECURE BOOT DETECTED - ACTION REQUIRED
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-To use CoreFreq with Secure Boot, enroll the MOK key NOW (before reboot):
+To use NCT6687D with Secure Boot, enroll the MOK key NOW (before reboot):
 
   sudo mokutil --import /etc/pki/akmods/certs/public_key.der
 
@@ -195,25 +193,28 @@ EOF
 smart_mok_check
 
 # Register service with systemd
-%systemd_post corefreqd.service
-systemctl enable corefreqd.service >/dev/null 2>&1 || true
+%systemd_post nct6687d.service
+systemctl enable nct6687d.service >/dev/null 2>&1 || true
 
-cat << 'EOF'
+cat << EOF
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ CoreFreq Installation Complete
+✅ NCT6687D Installation Complete
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ⚠️  REBOOT REQUIRED
 
 The kernel module will be compiled during the next boot.
-After rebooting, CoreFreq will start automatically.
+After rebooting, the NCT6687 sensors are exposed through hwmon:
 
-To use CoreFreq after reboot:
-  corefreq-cli
+  sensors
 
-To check service status:
-  systemctl status corefreqd.service
+To check the module / service status:
+  systemctl status nct6687d.service
+
+Board-specific sensor examples (labels/compute) are installed in:
+  %{_docdir}/sensors.d/
+Copy the one matching your board to /etc/hwmon.d/ to activate it.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -221,23 +222,23 @@ EOF
 
 %preun
 # Stop service before uninstall/upgrade
-%systemd_preun corefreqd.service
+%systemd_preun nct6687d.service
 
 if [ $1 -eq 0 ]; then
     # Complete uninstall: try to remove the kernel module
     # (May fail if in use - that's OK, reboot will clear it)
-    /sbin/modprobe -r corefreqk >/dev/null 2>&1 || true
+    /sbin/modprobe -r nct6687 >/dev/null 2>&1 || true
 fi
 
 %postun
-%systemd_postun corefreqd.service
+%systemd_postun nct6687d.service
 
 if [ $1 -ne 0 ]; then
     # Upgrade scenario: show message
     cat << 'EOF'
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ CoreFreq Upgraded
+✅ NCT6687D Upgraded
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ⚠️  REBOOT REQUIRED
@@ -252,48 +253,25 @@ fi
 
 %files
 %license LICENSE
-%doc README.md
-%{_bindir}/corefreq-cli
-%{_bindir}/corefreqd
-%{_unitdir}/corefreqd.service
-%{_dracut_conf_d}/99-corefreq.conf
+%doc README.md TESTING_RESULTS.md sensors.d
+%config(noreplace) %{_sysconfdir}/modprobe.d/nct6687.conf
+%{_unitdir}/nct6687d.service
+%{_dracut_conf_d}/99-nct6687d.conf
 
 %files -n akmod-%{name}
-%{_usrsrc}/akmods/corefreq-kmod-%{version}-*.src.rpm
-%{_usrsrc}/akmods/corefreq-kmod.latest
+%{_usrsrc}/akmods/nct6687d-kmod-%{version}-*.src.rpm
+%{_usrsrc}/akmods/nct6687d-kmod.latest
 
 %files kmod-common
 # Empty dependency anchor package
 
 %changelog
-* Mon, 17 Aug 2026 Sunny Yang <yxh9956@gmail.com> - 2.1.4-1
-- Update to upstream version 2.1.4
-
-* Fri, 19 Jun 2026 Sunny Yang <yxh9956@gmail.com> - 2.1.2-1
-- Update to upstream version 2.1.2
-- Sync Makefile.akmod with upstream: declare $(BUILD)/module/corefreqk.c as an
-  empty rule and add it as a prerequisite of the .ko target
-
-* Tue, 26 May 2026 Sunny Yang <yxh9956@gmail.com> - 2.1.1-1
-- Update to upstream version 2.1.1
-
-* Wed, 23 Mar 2026 Sunny Yang <yxh9956@gmail.com> - 2.1.0-32
-- Add aarch64 and ppc64le architecture support
-- Remove .copr directory
-
-* Tue, 13 Jan 2026 04:25:53 +0000 github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com> - 2.1.0-1
-- Update to upstream version 2.1.0
-
-* Fri Dec 06 2025 Sunny Yang <yxh9956@gmail.com> - 2.0.9-29
-- Clean up %preun: remove redundant systemctl stop and sleep loop
-- Trust systemd's synchronous stop behavior
-- Maintain consistent upgrade behavior without service restart
-
-* Wed Nov 12 2025 github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com> - 2.0.9-1
-- Update to upstream version 2.0.9
-
-* Sun Nov 09 2025 Sunny Yang <yxh9956@gmail.com> - 2.0.8-26
-- Adopt NVIDIA-style approach: reboot required after installation
-- Remove all attempts to start service immediately after install
-- Simplified installation flow for better reliability
-- Service will start automatically on next boot after module compilation
+* Wed, 23 Sep 2026 Sunny <yxh9956@gmail.com> - 1.0-20260923git5f12dd1
+- Rebuild Fedora packaging on the coreFreq-rpm-fedora akmod framework:
+  single spec as source of truth, build-time generated kmod SRPM,
+  dracut omit conf, MOK/Secure Boot automation
+- Replace upstream's MAKEFILE_PKGVER/MAKEFILE_COMMITHASH placeholder
+  specs; version now pinned to an upstream commit (nct6687d_commit)
+  with a Fedora git-snapshot style release
+- Add nct6687d.service (oneshot modprobe unit) and nct6687 modprobe conf
+- Ship board-specific hwmon.d examples from upstream sensors.d/ as docs
