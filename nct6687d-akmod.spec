@@ -76,21 +76,9 @@ Provides:       %{name}-kmod-common = %{?epoch:%{epoch}:}%{version}-%{release}
 This package provides the common files for the %{name} kernel modules.
 
 %prep
-# codeload's commit tarballs name their top-level directory <repo>-<sha>,
-# and the exact form is up to codeload (for commits it is the full sha) -
-# never guess it: fetch the tarball up front and read the real directory
-# name from the archive itself.
-SRC_TARBALL=%{_sourcedir}/%{name}-%{nct6687d_commit}.tar.gz
-if [ ! -f "$SRC_TARBALL" ]; then
-    if command -v curl >/dev/null 2>&1; then
-        curl -fL --retry 3 --retry-delay 5 -o "$SRC_TARBALL" \
-            "%{url}/archive/%{nct6687d_commit}.tar.gz"
-    else
-        wget -q -O "$SRC_TARBALL" "%{url}/archive/%{nct6687d_commit}.tar.gz"
-    fi
-fi
-%global nct6687d_topdir %(tar -tzf %{_sourcedir}/%{name}-%{nct6687d_commit}.tar.gz | head -n1 | cut -d/ -f1)
-%setup -q -n %{nct6687d_topdir}
+# codeload names a commit tarball's top-level directory <repo>-<full sha>
+# (verified against the live codeload output), so pin that exact name.
+%setup -q -n %{name}-%{nct6687d_commit}
 
 # Replace the upstream Makefile (manual install / dkms / deb / akmod noise
 # that keeps drifting between upstream commits) with the packaging-owned
@@ -115,9 +103,9 @@ sed -e 's|@NCT6687D_VERSION@|%{version}|g' \
     %{SOURCE4} > "$SRPM_TOPDIR"/SPECS/nct6687d-kmod.spec
 
 tar -czf "$SRPM_TOPDIR"/SOURCES/nct6687d-kmod-%{version}.tar.gz \
-    --transform "s|^%{nct6687d_topdir}|nct6687d-kmod-%{version}|" \
+    --transform "s|^%{name}-%{nct6687d_commit}|nct6687d-kmod-%{version}|" \
     -C %{_builddir} \
-    %{nct6687d_topdir}
+    %{name}-%{nct6687d_commit}
 
 rpmbuild -bs \
   --define "_topdir $SRPM_TOPDIR" \
@@ -301,6 +289,6 @@ fi
 - Drive the per-kernel build from a packaging-owned Makefile.akmod; the
   upstream Makefile stays the manual/dkms/deb workflow and is swapped out
   in %prep before the kmod SRPM tarball is generated
-- %prep reads the codeload tarball's real top-level directory instead of
-  assuming a fixed-length sha prefix (codeload uses the full sha), and
-  %changelog dates now use the RPM standard format
+- %setup pins codeload's actual top-level directory name
+  (<repo>-<full sha>, verified against live codeload output), and
+  %changelog dates use the RPM standard format
