@@ -9,7 +9,7 @@
 # encodes the packaging date plus the short commit (Fedora git-snapshot
 # convention), so every upstream sync is a new, uniquely named build.
 %global nct6687d_commit 5f12dd1b0b3c8f79f31d309749862d986ff9efa7
-%global nct6687d_release 20260923git5f12dd1
+%global nct6687d_release 20260924git5f12dd1
 
 Name:           nct6687d
 Version:        1.0
@@ -277,6 +277,11 @@ fi
 # Empty dependency anchor package
 
 %changelog
+* Thu Sep 24 2026 Sunny <yxh9956@gmail.com> - 1.0-20260924git5f12dd1
+- nct6687.conf: replace the bare module-name line (invalid modprobe.d
+  syntax - libkmod logs "ignoring bad line" on every kmod tool run) with a
+  comments-only options template
+
 * Wed Sep 23 2026 Sunny <yxh9956@gmail.com> - 1.0-20260923git5f12dd1
 - Rebuild Fedora packaging on the coreFreq-rpm-fedora akmod framework:
   single spec as source of truth, build-time generated kmod SRPM,
