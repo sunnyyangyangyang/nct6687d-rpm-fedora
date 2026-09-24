@@ -9,7 +9,6 @@
 # encodes the packaging date plus the short commit (Fedora git-snapshot
 # convention), so every upstream sync is a new, uniquely named build.
 %global nct6687d_commit 5f12dd1b0b3c8f79f31d309749862d986ff9efa7
-%global nct6687d_commitshort %(echo %{nct6687d_commit} | cut -c1-12)
 %global nct6687d_release 20260923git5f12dd1
 
 Name:           nct6687d
@@ -19,7 +18,7 @@ Summary:        Nuvoton NCT6687 hardware monitoring kernel module (akmod)
 
 License:        GPL-2.0-or-later
 URL:            https://github.com/Fred78290/nct6687d
-Source0:        %{url}/archive/%{nct6687d_commit}.tar.gz#/nct6687d-%{nct6687d_commitshort}.tar.gz
+Source0:        %{url}/archive/%{nct6687d_commit}.tar.gz#/%{name}-%{nct6687d_commit}.tar.gz
 Source1:        nct6687d.service
 Source2:        Makefile.akmod
 Source3:        nct6687.conf
@@ -77,7 +76,21 @@ Provides:       %{name}-kmod-common = %{?epoch:%{epoch}:}%{version}-%{release}
 This package provides the common files for the %{name} kernel modules.
 
 %prep
-%setup -q -n nct6687d-%{nct6687d_commitshort}
+# codeload's commit tarballs name their top-level directory <repo>-<sha>,
+# and the exact form is up to codeload (for commits it is the full sha) -
+# never guess it: fetch the tarball up front and read the real directory
+# name from the archive itself.
+SRC_TARBALL=%{_sourcedir}/%{name}-%{nct6687d_commit}.tar.gz
+if [ ! -f "$SRC_TARBALL" ]; then
+    if command -v curl >/dev/null 2>&1; then
+        curl -fL --retry 3 --retry-delay 5 -o "$SRC_TARBALL" \
+            "%{url}/archive/%{nct6687d_commit}.tar.gz"
+    else
+        wget -q -O "$SRC_TARBALL" "%{url}/archive/%{nct6687d_commit}.tar.gz"
+    fi
+fi
+%global nct6687d_topdir %(tar -tzf %{_sourcedir}/%{name}-%{nct6687d_commit}.tar.gz | head -n1 | cut -d/ -f1)
+%setup -q -n %{nct6687d_topdir}
 
 # Replace the upstream Makefile (manual install / dkms / deb / akmod noise
 # that keeps drifting between upstream commits) with the packaging-owned
@@ -97,9 +110,14 @@ install -d %{buildroot}%{_usrsrc}/akmods/
 SRPM_TOPDIR=$(mktemp -d)
 mkdir -p "$SRPM_TOPDIR"/{SOURCES,SPECS}
 
-sed -e 's|@NCT6687D_VERSION@|%{version}|g'     -e 's|@NCT6687D_RELEASE@|%{release}|g'     %{SOURCE4} > "$SRPM_TOPDIR"/SPECS/nct6687d-kmod.spec
+sed -e 's|@NCT6687D_VERSION@|%{version}|g' \
+    -e 's|@NCT6687D_RELEASE@|%{release}|g' \
+    %{SOURCE4} > "$SRPM_TOPDIR"/SPECS/nct6687d-kmod.spec
 
-tar -czf "$SRPM_TOPDIR"/SOURCES/nct6687d-kmod-%{version}.tar.gz     --transform "s|^nct6687d-%{nct6687d_commitshort}|nct6687d-kmod-%{version}|"     -C %{_builddir}     nct6687d-%{nct6687d_commitshort}
+tar -czf "$SRPM_TOPDIR"/SOURCES/nct6687d-kmod-%{version}.tar.gz \
+    --transform "s|^%{nct6687d_topdir}|nct6687d-kmod-%{version}|" \
+    -C %{_builddir} \
+    %{nct6687d_topdir}
 
 rpmbuild -bs \
   --define "_topdir $SRPM_TOPDIR" \
@@ -271,7 +289,7 @@ fi
 # Empty dependency anchor package
 
 %changelog
-* Wed, 23 Sep 2026 Sunny <yxh9956@gmail.com> - 1.0-20260923git5f12dd1
+* Wed Sep 23 2026 Sunny <yxh9956@gmail.com> - 1.0-20260923git5f12dd1
 - Rebuild Fedora packaging on the coreFreq-rpm-fedora akmod framework:
   single spec as source of truth, build-time generated kmod SRPM,
   dracut omit conf, MOK/Secure Boot automation
@@ -283,3 +301,6 @@ fi
 - Drive the per-kernel build from a packaging-owned Makefile.akmod; the
   upstream Makefile stays the manual/dkms/deb workflow and is swapped out
   in %prep before the kmod SRPM tarball is generated
+- %prep reads the codeload tarball's real top-level directory instead of
+  assuming a fixed-length sha prefix (codeload uses the full sha), and
+  %changelog dates now use the RPM standard format

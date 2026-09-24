@@ -62,7 +62,7 @@ jobs:
           echo "✅ nct6687d-akmod.spec updated."
 
           echo "Adding changelog entry..."
-          CHANGELOG_DATE=$(date -R)
+          CHANGELOG_DATE=$(date '+%a %b %d %Y')   # RPM-standard %changelog date format
           AUTHOR_INFO="github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
           awk -v date="${CHANGELOG_DATE}" -v version="1.0" -v release="${NEW_RELEASE}" -v commit="${NEW_SHORT}" -v author="${AUTHOR_INFO}" \
             '/%changelog/ { print; print "* " date " " author " - " version "-" release; print "- Update to upstream commit " commit; print ""; next } 1' \

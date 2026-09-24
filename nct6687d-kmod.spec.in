@@ -71,5 +71,5 @@ done
 %{?akmod_install}
 
 %changelog
-* Wed, 23 Sep 2026 Sunny <yxh9956@gmail.com> - @NCT6687D_VERSION@-@NCT6687D_RELEASE@
+* Wed Sep 23 2026 Sunny <yxh9956@gmail.com> - @NCT6687D_VERSION@-@NCT6687D_RELEASE@
 - Follow nvidia-kmod pattern for reliable kernel module building
