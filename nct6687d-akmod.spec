@@ -6,19 +6,17 @@
 
 # Upstream Fred78290/nct6687d ships no release tags, so Source0 is
 # pinned to an explicit upstream commit (5f12dd1b, upstream 2026-09-15).
-# The RPM release follows the Fedora git-snapshot convention WITHOUT the
-# leading "0." (a leading zero would sort the whole line older than the
-# legacy plain-counter builds, turning the migration into a permanent
-# downgrade): <commit-date>git<short-sha> plus a per-commit packaging
-# counter, e.g. 20260915git5f12dd1.3. The counter counts packaging
-# builds of that commit and continues across scheme changes: builds 1
-# and 2 of this commit shipped as the legacy tags 20260924git5f12dd1
-# and 1.0-2, so this build is .3. The counter starts at 1, never uses
-# .0 (rpm 6 compares a trailing ".0" as strictly greater), and resets
-# to 1 on a new upstream commit; the commit-date prefix keeps cross-
-# commit ordering chronological.
+# The RPM release is the stable git-snapshot tag of this commit,
+# 20260924git5f12dd1 (named after its first packaging build; the
+# upstream commit date lives in the Source0 pin and the changelog) -
+# no leading "0.", no counter suffix. A rebuild of the same commit
+# reuses the tag: the content is refreshed with dnf reinstall /
+# rpm -U --force (same NEVRA, no downgrade), and akmods keeps the
+# already-built kmod since the driver source is unchanged. A new
+# upstream sync mints a new <date>git<sha> tag that always sorts
+# after this one.
 %global nct6687d_commit 5f12dd1b0b3c8f79f31d309749862d986ff9efa7
-%global nct6687d_release 20260915git5f12dd1.3
+%global nct6687d_release 20260924git5f12dd1
 
 Name:           nct6687d
 Version:        1.0
@@ -291,14 +289,16 @@ fi
 # Empty dependency anchor package
 
 %changelog
-* Thu Sep 24 2026 Sunny <yxh9956@gmail.com> - 1.0-20260915git5f12dd1.3
-- Adopt the git-snapshot release convention (commit date + git short
-  sha + per-commit packaging counter, no leading 0.) so the upstream
-  commit is visible in the NEVRA: this is the third packaging build of
-  commit 5f12dd1b (2026-09-15); builds 1 and 2 shipped as the legacy
-  tags 1.0-20260924git5f12dd1 and 1.0-2. No payload change vs 1.0-2.
-  Counter rules: starts at 1, never .0, resets on a new commit; the
-  date prefix keeps cross-commit ordering chronological.
+* Thu Sep 24 2026 Sunny <yxh9956@gmail.com> - 1.0-20260924git5f12dd1
+- Rebuild on the commit's stable git-snapshot tag
+  (20260924git5f12dd1, no leading 0., no counter suffix): the NEVRA
+  name is reused across rebuilds of the same commit, so this fixed
+  build installs over the previous one via dnf reinstall / rpm -U
+  --force (same NEVRA, no downgrade dance), and akmods keeps the
+  already-built kmod (same driver source 5f12dd1b). This rebuild
+  carries the install-time akmods trigger fix (kmodtool posttrans)
+  and the NO-REBOOT scriptlets; a new upstream sync mints a new
+  <date>git<sha> tag.
 
 * Thu Sep 24 2026 Sunny <yxh9956@gmail.com> - 1.0-2
 - Fix install-time akmod trigger: drop the --pattern flag (unsupported by

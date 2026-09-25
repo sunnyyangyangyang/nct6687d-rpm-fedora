@@ -24,12 +24,12 @@ Upstream driver: https://github.com/Fred78290/nct6687d
 
 Upstream ships no release tags, so `Source0` is pinned to an explicit
 upstream commit (`nct6687d_commit` in the spec; currently 5f12dd1b,
-2026-09-15). The RPM release follows the Fedora git-snapshot convention
-without the leading `0.`: `<commit-date>git<short-sha>` plus a per-commit
-packaging counter — e.g. `1.0-20260915git5f12dd1.3.fc44` (the third
-packaging build of that commit; the counter continues across scheme
-changes and resets to `1` on a new commit, never using `.0`). The commit
-date prefix keeps ordering chronological across upstream syncs.
+2026-09-15). The RPM release is the commit's stable git-snapshot tag
+without a leading `0.` or counter suffix — e.g.
+`1.0-20260924git5f12dd1.fc44` (named after the first packaging build
+of that commit). A rebuild of the same commit reuses the tag
+(install over the previous one with `dnf reinstall` / `rpm -U
+--force`), and a new upstream sync mints a new `<date>git<sha>` tag.
 
 ## Notes
 
