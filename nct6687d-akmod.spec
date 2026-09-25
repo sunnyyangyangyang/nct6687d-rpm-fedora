@@ -5,14 +5,20 @@
 %global _dracut_conf_d /usr/lib/dracut/dracut.conf.d
 
 # Upstream Fred78290/nct6687d ships no release tags, so Source0 is
-# pinned to an explicit upstream commit (5f12dd1b, upstream 2026-09-15)
-# and the commit identity lives in the tarball name. The RPM release is
-# a plain counter in kernel `7.2.1-2` style: the first packaging build
-# of a commit is -1, each later packaging rebuild of the same commit
-# increments it (1.0-2, 1.0-3, ...), and a new upstream sync resets it
-# to -1 on the new commit.
+# pinned to an explicit upstream commit (5f12dd1b, upstream 2026-09-15).
+# The RPM release follows the Fedora git-snapshot convention WITHOUT the
+# leading "0." (a leading zero would sort the whole line older than the
+# legacy plain-counter builds, turning the migration into a permanent
+# downgrade): <commit-date>git<short-sha> plus a per-commit packaging
+# counter, e.g. 20260915git5f12dd1.3. The counter counts packaging
+# builds of that commit and continues across scheme changes: builds 1
+# and 2 of this commit shipped as the legacy tags 20260924git5f12dd1
+# and 1.0-2, so this build is .3. The counter starts at 1, never uses
+# .0 (rpm 6 compares a trailing ".0" as strictly greater), and resets
+# to 1 on a new upstream commit; the commit-date prefix keeps cross-
+# commit ordering chronological.
 %global nct6687d_commit 5f12dd1b0b3c8f79f31d309749862d986ff9efa7
-%global nct6687d_release 2
+%global nct6687d_release 20260915git5f12dd1.3
 
 Name:           nct6687d
 Version:        1.0
@@ -285,6 +291,15 @@ fi
 # Empty dependency anchor package
 
 %changelog
+* Thu Sep 24 2026 Sunny <yxh9956@gmail.com> - 1.0-20260915git5f12dd1.3
+- Adopt the git-snapshot release convention (commit date + git short
+  sha + per-commit packaging counter, no leading 0.) so the upstream
+  commit is visible in the NEVRA: this is the third packaging build of
+  commit 5f12dd1b (2026-09-15); builds 1 and 2 shipped as the legacy
+  tags 1.0-20260924git5f12dd1 and 1.0-2. No payload change vs 1.0-2.
+  Counter rules: starts at 1, never .0, resets on a new commit; the
+  date prefix keeps cross-commit ordering chronological.
+
 * Thu Sep 24 2026 Sunny <yxh9956@gmail.com> - 1.0-2
 - Fix install-time akmod trigger: drop the --pattern flag (unsupported by
   kmodtool 1.2.x, which exits 2 on it; 2>/dev/null silenced the error and
