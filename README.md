@@ -22,17 +22,23 @@ Upstream driver: https://github.com/Fred78290/nct6687d
 
 ## Versioning
 
-Upstream ships no release tags, so the package pins an upstream commit
-(`nct6687d_commit` in the spec) and encodes it in the RPM release using the
-Fedora git-snapshot convention, e.g. `1.0-20260923git5f12dd1.fc42`.
+Upstream ships no release tags, so `Source0` is pinned to an explicit
+upstream commit (`nct6687d_commit` in the spec; currently 5f12dd1b,
+upstream 2026-09-15). The RPM release is a plain counter in kernel
+`7.2.1-2` style: the first packaging build of a commit is `-1`, each
+later packaging rebuild of the same commit increments it (`1.0-2`,
+`1.0-3`, ...), and a new upstream sync resets it to `-1` on the new
+commit — e.g. `1.0-2.fc44`.
 
 ## Notes
 
 - Board-specific hwmon.d examples from upstream are shipped in
   `%{_docdir}/nct6687d/sensors.d/`; copy the one matching your board to
   `/etc/hwmon.d/` to activate it
-- A REBOOT is required after (re)installation: the module is compiled by
-  akmods during the next boot, then loaded by the service
+- No reboot after (re)installation: the akmod package's %posttrans
+  triggers akmods immediately, so the module is compiled on the fly;
+  the loader service picks it up at the next boot (or run
+  `systemctl restart nct6687-load` right away)
 - Secure Boot: the post-install scriptlet detects unenrolled MOK keys and
   prints the `mokutil --import` steps
 
