@@ -54,7 +54,7 @@ Requires:       %{name}-kmod = %{?epoch:%{epoch}:}%{version}-%{release}
 Requires:       %{name}-kmod-common = %{?epoch:%{epoch}:}%{version}-%{release}
 
 # Generate akmod metadata
-%{expand:%(kmodtool --target %{_target_cpu} --kmodname %{name} --akmod 2>/dev/null) }
+%{expand:%(kmodtool --target %{_target_cpu} --kmodname %{name} --akmod) }
 
 %description
 nct6687d is a kernel module for the hardware monitoring functionality of
