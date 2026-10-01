@@ -3,6 +3,12 @@
 %global _debuginfo_packages 0
 %global debug_package %{nil}
 %global _dracut_conf_d /usr/lib/dracut/dracut.conf.d
+%global forgeurl https://github.com/Fred78290/nct6687d
+%global version 1.0
+%global commit 5f12dd1b0b3c8f79f31d309749862d986ff9efa7
+%global date 20260924
+%global source_date_epoch_from_changelog 0
+%forgemeta
 
 # Upstream Fred78290/nct6687d ships no release tags, so Source0 is
 # pinned to an explicit upstream commit (5f12dd1b, upstream 2026-09-15).
@@ -15,17 +21,16 @@
 # already-built kmod since the driver source is unchanged. A new
 # upstream sync mints a new <date>git<sha> tag that always sorts
 # after this one.
-%global nct6687d_commit 5f12dd1b0b3c8f79f31d309749862d986ff9efa7
-%global nct6687d_release 20260924git5f12dd1
+
 
 Name:           nct6687d
-Version:        1.0
-Release:        %{nct6687d_release}%{?dist}
+Version:        %{forgeversion}
+Release:        %{autorelease}
 Summary:        Nuvoton NCT6687 hardware monitoring kernel module (akmod)
 
 License:        GPL-2.0-or-later
 URL:            https://github.com/Fred78290/nct6687d
-Source0:        %{url}/archive/%{nct6687d_commit}.tar.gz#/%{name}-%{nct6687d_commit}.tar.gz
+Source0:        %{forgesource}
 Source1:        nct6687-load.service
 Source2:        Makefile.akmod
 Source3:        nct6687.conf
@@ -86,7 +91,7 @@ This package provides the common files for the %{name} kernel modules.
 %prep
 # codeload names a commit tarball's top-level directory <repo>-<full sha>
 # (verified against the live codeload output), so pin that exact name.
-%setup -q -n %{name}-%{nct6687d_commit}
+%forgeautosetup
 
 # Replace the upstream Makefile (manual install / dkms / deb / akmod noise
 # that keeps drifting between upstream commits) with the packaging-owned
@@ -111,9 +116,8 @@ sed -e 's|@NCT6687D_VERSION@|%{version}|g' \
     %{SOURCE4} > "$SRPM_TOPDIR"/SPECS/nct6687d-kmod.spec
 
 tar -czf "$SRPM_TOPDIR"/SOURCES/nct6687d-kmod-%{version}.tar.gz \
-    --transform "s|^%{name}-%{nct6687d_commit}|nct6687d-kmod-%{version}|" \
-    -C %{_builddir} \
-    %{name}-%{nct6687d_commit}
+    --transform "s|^\.|nct6687d-kmod-%{version}|" \
+    .
 
 rpmbuild -bs \
   --define "_topdir $SRPM_TOPDIR" \
