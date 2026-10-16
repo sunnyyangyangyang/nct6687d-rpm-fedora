@@ -22,6 +22,9 @@ jobs:
     # manual dispatch from pushing here.
     if: github.ref == 'refs/heads/main' && github.repository_owner == 'sunnyyangyangyang'
     runs-on: ubuntu-latest
+    # gh requires GH_TOKEN inside Actions (GITHUB_TOKEN alone is rejected)
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -45,8 +48,6 @@ jobs:
 
       - name: Update spec header and push
         if: steps.upstream.outputs.changed == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           latest="${{ steps.upstream.outputs.latest }}"
