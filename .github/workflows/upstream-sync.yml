@@ -1,0 +1,63 @@
+name: upstream-sync
+
+# Daily check of the upstream driver repo (Fred78290/nct6687d).
+# If the upstream HEAD differs from the Source0 pin in nct6687d-akmod.spec
+# (%global commit), refresh the spec header (%global commit and %global
+# date; date = upstream commit date in UTC, YYYYMMDD) and push to main.
+# Only the spec header is touched, mirroring the manual sync commits;
+# the changelog tag is minted by a human at build time.
+
+on:
+  schedule:
+    # 12:30 UTC = 08:30 EDT / 07:30 EST
+    - cron: "30 12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-upstream:
+    # Cron fires only on the source repo; this guard stops a fork's
+    # manual dispatch from pushing here.
+    if: github.ref == 'refs/heads/main' && github.repository_owner == 'sunnyyangyangyang'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check upstream for new commits
+        id: upstream
+        run: |
+          set -euo pipefail
+          head=$(gh api 'repos/Fred78290/nct6687d/commits?per_page=1' --jq -r '.[0] | [.sha, .commit.author.date] | @tsv')
+          latest=$(cut -f1 <<<"$head")
+          commit_date=$(cut -f2 <<<"$head")
+          pinned=$(sed -n 's/^%global commit //p' nct6687d-akmod.spec | tr -d '[:space:]')
+          echo "latest=$latest" >>"$GITHUB_OUTPUT"
+          echo "pinned=$pinned" >>"$GITHUB_OUTPUT"
+          echo "date=$(date -u -d "$commit_date" +%Y%m%d)" >>"$GITHUB_OUTPUT"
+          echo "changed=$([ "$latest" != "$pinned" ] && echo true || echo false)" >>"$GITHUB_OUTPUT"
+          echo "upstream HEAD: $latest"
+          echo "spec pinned:   $pinned"
+          if [ "$latest" = "$pinned" ]; then
+            echo "upstream unchanged, nothing to do"
+          fi
+
+      - name: Update spec header and push
+        if: steps.upstream.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          latest="${{ steps.upstream.outputs.latest }}"
+          newdate="${{ steps.upstream.outputs.date }}"
+          sed -i "s|^%global commit .*|%global commit ${latest}|" nct6687d-akmod.spec
+          sed -i "s|^%global date .*|%global date ${newdate}|" nct6687d-akmod.spec
+          git diff
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nct6687d-akmod.spec
+          git commit -m "Update commit hash and date in spec file" -m "Upstream Fred78290/nct6687d is now at ${latest} (commit date ${newdate}); refresh the Source0 pin in the spec header."
+          git pull --rebase origin main
+          git push origin HEAD:main
+          echo "spec header updated: commit=${latest} date=${newdate}"
