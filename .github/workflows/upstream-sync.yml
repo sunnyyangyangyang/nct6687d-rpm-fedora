@@ -29,7 +29,7 @@ jobs:
         id: upstream
         run: |
           set -euo pipefail
-          head=$(gh api 'repos/Fred78290/nct6687d/commits?per_page=1' --jq -r '.[0] | [.sha, .commit.author.date] | @tsv')
+          head=$(gh api 'repos/Fred78290/nct6687d/commits?per_page=1' --jq '.[0] | [.sha, .commit.author.date] | @tsv')
           latest=$(cut -f1 <<<"$head")
           commit_date=$(cut -f2 <<<"$head")
           pinned=$(sed -n 's/^%global commit //p' nct6687d-akmod.spec | tr -d '[:space:]')
