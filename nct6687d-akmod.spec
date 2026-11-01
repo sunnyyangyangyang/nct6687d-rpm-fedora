@@ -5,8 +5,8 @@
 %global _dracut_conf_d /usr/lib/dracut/dracut.conf.d
 %global forgeurl https://github.com/Fred78290/nct6687d
 %global version 1.0
-%global commit ec1030ba7acc32b36723af0c7c9c9aead5e57b54
-%global date 20261019
+%global commit 25421f527f47007d95c310cfa6c2aa97c42edd81
+%global date 20261101
 %global source_date_epoch_from_changelog 0
 %forgemeta
 
